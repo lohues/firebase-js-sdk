@@ -29,7 +29,7 @@ const { projectRoot } = require('../utils');
 const { mapPkgNameToPkgJson } = require('../release/utils/workspace');
 const { argv } = require('yargs');
 const fs = require('mz/fs');
-async function updateField(pkg, fieldName) {
+async function updateField(pkg: { [key: string]: any }, fieldName: string) {
   const field = pkg[fieldName];
   for (const depName in field) {
     if (!depName.includes('@firebase') && depName !== 'firebase') continue;
