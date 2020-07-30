@@ -4,6 +4,9 @@
   "main": "../dist/exp/index.cjs.js",
   "module": "../dist/exp/index.esm2017.js",
   "browser": "../dist/exp/index.esm2017.js",
-  "typings": "../exp-types/index.d.ts",
-  "private": true
+  "typings": "./dist/exp/index.d.ts",
+  "private": true,
+  "dependencies": {
+    "@firebase/app-exp": "0.0.800"
+  }
 }

@@ -28,15 +28,25 @@ import {
   updateMetadata,
   deleteObject
 } from '../src/reference';
-import { validate, stringSpec } from '../src/implementation/args';
+import {
+  validate,
+  stringSpec,
+  listOptionSpec,
+  metadataSpec,
+  uploadDataSpec
+} from '../src/implementation/args';
 import { Metadata } from '../src/metadata';
 import { UploadTask } from '../src/task';
-import { StringFormat } from '../src/implementation/string';
+import { StringFormat, formatValidator } from '../src/implementation/string';
 import { ListResult, ListOptions } from '../src/list';
 
 export class ReferenceCompat extends Reference {
   static fromReference(ref: Reference): ReferenceCompat {
     return new ReferenceCompat(ref.service, ref.location);
+  }
+  toString(): string {
+    validate('toString', [], arguments);
+    return super.toString();
   }
   /**
    * @return A reference to the object obtained by
@@ -54,6 +64,7 @@ export class ReferenceCompat extends Reference {
    *     current object, or null if the current object is the root.
    */
   get parent(): ReferenceCompat | null {
+    validate('parent', [], arguments);
     const reference = getParent(this);
     if (reference == null) {
       return null;
@@ -71,6 +82,8 @@ export class ReferenceCompat extends Reference {
     data: Blob | Uint8Array | ArrayBuffer,
     metadata: Metadata | null = null
   ): UploadTask {
+    validate('put', [uploadDataSpec(), metadataSpec(true)], arguments);
+    this.throwIfRoot_('put');
     return uploadBytes(this, data, metadata);
   }
   /**
@@ -85,6 +98,12 @@ export class ReferenceCompat extends Reference {
     format: StringFormat = StringFormat.RAW,
     metadata?: Metadata
   ): UploadTask {
+    validate(
+      'putString',
+      [stringSpec(), stringSpec(formatValidator, true), metadataSpec(true)],
+      arguments
+    );
+    this.throwIfRoot_('putString');
     return uploadString(this, value, format, metadata);
   }
   /**
@@ -105,6 +124,7 @@ export class ReferenceCompat extends Reference {
    *      folder. `nextPageToken` is never returned.
    */
   listAll(): Promise<ListResult> {
+    validate('listAll', [], arguments);
     return listAll(this);
   }
   /**
@@ -128,6 +148,7 @@ export class ReferenceCompat extends Reference {
    *      can be used to get the rest of the results.
    */
   list(options?: ListOptions | null): Promise<ListResult> {
+    validate('list', [listOptionSpec(true)], arguments);
     return list(this, options);
   }
 
@@ -137,6 +158,7 @@ export class ReferenceCompat extends Reference {
    *     rejected.
    */
   getMetadata(): Promise<Metadata> {
+    validate('getMetadata', [], arguments);
     return getMetadata(this);
   }
 
@@ -150,6 +172,7 @@ export class ReferenceCompat extends Reference {
    *     @see firebaseStorage.Reference.prototype.getMetadata
    */
   updateMetadata(metadata: Metadata): Promise<Metadata> {
+    validate('updateMetadata', [metadataSpec()], arguments);
     return updateMetadata(this, metadata);
   }
 
@@ -158,6 +181,7 @@ export class ReferenceCompat extends Reference {
    *     URL for this object.
    */
   getDownloadURL(): Promise<string> {
+    validate('getDownloadURL', [], arguments);
     return getDownloadURL(this);
   }
 
@@ -166,6 +190,8 @@ export class ReferenceCompat extends Reference {
    * @return A promise that resolves if the deletion succeeds.
    */
   delete(): Promise<void> {
+    validate('delete', [], arguments);
+    this.throwIfRoot_('delete');
     return deleteObject(this);
   }
 }

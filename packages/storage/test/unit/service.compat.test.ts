@@ -17,7 +17,7 @@
 import { assert } from 'chai';
 import { TaskEvent } from '../../src/implementation/taskenums';
 import { XhrIoPool } from '../../src/implementation/xhriopool';
-import { StorageService } from '../../src/service';
+import { StorageServiceCompat as StorageService } from '../../compat/service';
 import * as testShared from './testshared';
 import { DEFAULT_HOST } from '../../src/implementation/constants';
 import { FirebaseStorageError } from '../../src/implementation/error';

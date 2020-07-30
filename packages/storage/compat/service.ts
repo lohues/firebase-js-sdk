@@ -15,14 +15,37 @@
  * limitations under the License.
  */
 
-import { StorageService, pathValidator, urlValidator } from '../src/service';
+import { StorageService, isUrl } from '../src/service';
+import { Location } from '../src/implementation/location';
 import { FirebaseApp } from '@firebase/app-types';
 import { Provider } from '@firebase/component';
 import { FirebaseAuthInternalName } from '@firebase/auth-interop-types';
 import { XhrIoPool } from '../src/implementation/xhriopool';
-import { Reference } from '../src/reference';
 import * as args from '../src/implementation/args';
 import { ReferenceCompat } from './reference';
+
+export function urlValidator(maybeUrl: unknown): void {
+  if (typeof maybeUrl !== 'string') {
+    throw 'Path is not a string.';
+  }
+  if (!isUrl) {
+    throw 'Expected full URL but got a child path, use ref instead.';
+  }
+  try {
+    Location.makeFromUrl(maybeUrl as string);
+  } catch (e) {
+    throw 'Expected valid full URL but got an invalid one.';
+  }
+}
+
+export function pathValidator(path: unknown): void {
+  if (typeof path !== 'string') {
+    throw 'Path is not a string.';
+  }
+  if (isUrl(path)) {
+    throw 'Expected child path but got a URL, use refFromURL instead.';
+  }
+}
 
 /**
  * A service that provides firebaseStorage.Reference instances.
@@ -62,13 +85,33 @@ export class StorageServiceCompat extends StorageService {
    * Returns a firebaseStorage.Reference object for the given absolute URL,
    * which must be a gs:// or http[s]:// URL.
    */
-  refFromURL(url: string): Reference {
+  refFromURL(url: string): ReferenceCompat {
     args.validate(
       'refFromURL',
       [args.stringSpec(urlValidator, false)],
       arguments
     );
-    return new Reference(this, url);
+    return new ReferenceCompat(this, url);
+  }
+
+  setMaxUploadRetryTime(time: number): void {
+    args.validate(
+      'setMaxUploadRetryTime',
+      [args.nonNegativeNumberSpec()],
+      arguments
+    );
+    // Can't call get/set on super class.
+    this.maxUploadRetryTime_ = time;
+  }
+
+  setMaxOperationRetryTime(time: number): void {
+    args.validate(
+      'setMaxOperationRetryTime',
+      [args.nonNegativeNumberSpec()],
+      arguments
+    );
+    // Can't call get/set on super class.
+    this.maxOperationRetryTime_ = time;
   }
 
   get app(): FirebaseApp | null {

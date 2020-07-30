@@ -29,6 +29,7 @@ import {
 } from '@firebase/component';
 
 import { name, version } from '../package.json';
+import { FirebaseStorage } from '@firebase/storage-types/exp';
 
 export { ref } from '../src/service';
 export {
@@ -79,3 +80,9 @@ export function registerStorage(): void {
 }
 
 registerStorage();
+
+declare module '@firebase/component' {
+  interface NameServiceMapping {
+    'storage-exp': FirebaseStorage;
+  }
+}

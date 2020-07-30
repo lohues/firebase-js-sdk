@@ -16,7 +16,6 @@
  */
 
 import { FirebaseApp } from '@firebase/app-types';
-import * as args from './implementation/args';
 import { Location } from './implementation/location';
 import { FailRequest } from './implementation/failrequest';
 import { Request, makeRequest } from './implementation/request';
@@ -29,59 +28,14 @@ import { FirebaseOptions } from '@firebase/app-types-exp';
 import * as constants from '../src/implementation/constants';
 import * as errorsExports from './implementation/error';
 
-function isUrl(path?: string): boolean {
+export function isUrl(path?: string): boolean {
   return /^[A-Za-z]+:\/\//.test(path as string);
-}
-
-export function urlValidator(maybeUrl: unknown): void {
-  if (typeof maybeUrl !== 'string') {
-    throw 'Path is not a string.';
-  }
-  if (!isUrl) {
-    throw 'Expected full URL but got a child path, use ref instead.';
-  }
-  try {
-    Location.makeFromUrl(maybeUrl as string);
-  } catch (e) {
-    throw 'Expected valid full URL but got an invalid one.';
-  }
-}
-
-export function pathValidator(path: unknown): void {
-  if (typeof path !== 'string') {
-    throw 'Path is not a string.';
-  }
-  if (isUrl(path)) {
-    throw 'Expected child path but got a URL, use refFromURL instead.';
-  }
-}
-
-export function serviceOrRefValidator(serviceOrRef: unknown): void {
-  if (
-    !(
-      serviceOrRef instanceof StorageService ||
-      serviceOrRef instanceof Reference
-    )
-  ) {
-    throw 'Expected Storage instance or Reference.';
-  }
-}
-
-export function serviceValidator(service: unknown): void {
-  if (!(service instanceof StorageService)) {
-    throw 'Expected Storage instance.';
-  }
 }
 
 /**
  * Returns a firebaseStorage.Reference for the given url.
  */
 function refFromURL(service: StorageService, url: string): Reference {
-  args.validate(
-    'refFromURL',
-    [new args.ArgSpec(serviceValidator), args.stringSpec(urlValidator, false)],
-    arguments
-  );
   return new Reference(service, url);
 }
 
@@ -93,18 +47,10 @@ function refFromPath(
   ref: StorageService | Reference,
   path?: string
 ): Reference | null {
-  args.validate(
-    'refFromPath',
-    [
-      new args.ArgSpec(serviceOrRefValidator),
-      args.stringSpec(pathValidator, false)
-    ],
-    arguments
-  );
   if (ref instanceof StorageService) {
     const service = ref;
     if (service.bucket_ == null) {
-      throw new Error('No Storage Bucket defined in Firebase Options.');
+      throw errorsExports.noDefaultBucket();
     }
     const reference = new Reference(service, service.bucket_!);
     if (path != null) {
@@ -138,20 +84,42 @@ export function ref(
   serviceOrRef: StorageService | Reference,
   pathOrUrl?: string
 ): Reference | null {
-  args.validate(
-    'refFromURL',
-    [
-      new args.ArgSpec(serviceOrRefValidator),
-      args.stringSpec(urlValidator, false)
-    ],
-    arguments
-  );
-  if (serviceOrRef instanceof StorageService && isUrl(pathOrUrl)) {
-    return refFromURL(serviceOrRef, pathOrUrl!);
-  } else if (pathOrUrl != null) {
-    return refFromPath(serviceOrRef, pathOrUrl);
+  if (pathOrUrl && isUrl(pathOrUrl)) {
+    if (serviceOrRef instanceof StorageService) {
+      return refFromURL(serviceOrRef, pathOrUrl);
+    } else {
+      throw errorsExports.invalidArgument(
+        0,
+        'ref',
+        'To use ref(service, url), the first argument must be a Storage instance.'
+      );
+    }
+  } else if (pathOrUrl !== null) {
+    if (
+      serviceOrRef instanceof StorageService ||
+      serviceOrRef instanceof Reference
+    ) {
+      return refFromPath(serviceOrRef, pathOrUrl);
+    } else {
+      throw errorsExports.invalidArgument(
+        0,
+        'ref',
+        'To use ref(serviceOrRef, path), the first argument must be a Storage' +
+          ' instance or Reference.'
+      );
+    }
   } else {
-    return null;
+    // pathOrUrl param not provided
+    if (serviceOrRef instanceof StorageService) {
+      return refFromPath(serviceOrRef);
+    } else {
+      throw errorsExports.invalidArgument(
+        0,
+        'ref',
+        'To get the root reference, a Storage instance must be provided as' +
+          ' the param. Example: ref(storageInstance);'
+      );
+    }
   }
 }
 
@@ -169,8 +137,8 @@ export class StorageService {
   private readonly pool_: XhrIoPool;
   private readonly requests_: Set<Request<unknown>>;
   deleted_: boolean = false;
-  private maxOperationRetryTime_: number;
-  private maxUploadRetryTime_: number;
+  protected maxOperationRetryTime_: number;
+  protected maxUploadRetryTime_: number;
 
   constructor(
     app: FirebaseApp | null,
@@ -257,12 +225,7 @@ export class StorageService {
     return this.maxUploadRetryTime_;
   }
 
-  setMaxUploadRetryTime(time: number): void {
-    args.validate(
-      'setMaxUploadRetryTime',
-      [args.nonNegativeNumberSpec()],
-      arguments
-    );
+  set maxUploadRetryTime(time: number) {
     this.maxUploadRetryTime_ = time;
   }
 
@@ -270,12 +233,7 @@ export class StorageService {
     return this.maxOperationRetryTime_;
   }
 
-  setMaxOperationRetryTime(time: number): void {
-    args.validate(
-      'setMaxOperationRetryTime',
-      [args.nonNegativeNumberSpec()],
-      arguments
-    );
+  set maxOperationRetryTime(time: number) {
     this.maxOperationRetryTime_ = time;
   }
 

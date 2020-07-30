@@ -104,12 +104,4 @@ export class FirebaseStorage {
   app: FirebaseApp | null;
   maxOperationRetryTime: number;
   maxUploadRetryTime: number;
-  setMaxOperationRetryTime(time: number): void;
-  setMaxUploadRetryTime(time: number): void;
-}
-
-declare module '@firebase/component' {
-  interface NameServiceMapping {
-    'storage-exp': FirebaseStorage;
-  }
 }

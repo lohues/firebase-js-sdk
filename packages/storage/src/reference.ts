@@ -21,7 +21,11 @@
 import { FbsBlob } from './implementation/blob';
 import * as errorsExports from './implementation/error';
 import { Location } from './implementation/location';
-import * as metadata from './implementation/metadata';
+import {
+  metadataValidator,
+  Mappings,
+  getMappings
+} from './implementation/metadata';
 import * as path from './implementation/path';
 import * as requests from './implementation/requests';
 import {
@@ -34,13 +38,6 @@ import { Metadata } from './metadata';
 import { StorageService } from './service';
 import { UploadTask } from './task';
 import { ListOptions, ListResult } from './list';
-import {
-  listOptionSpec,
-  stringSpec,
-  validate,
-  metadataSpec,
-  uploadDataSpec
-} from './implementation/args';
 
 /**
  * Provides methods to interact with a bucket in the Firebase Storage service.
@@ -70,7 +67,6 @@ export class Reference {
    * @override
    */
   toString(): string {
-    validate('toString', [], arguments);
     return 'gs://' + this.location.bucket + '/' + this.location.path;
   }
 
@@ -78,8 +74,8 @@ export class Reference {
     return new Reference(service, location);
   }
 
-  mappings(): metadata.Mappings {
-    return metadata.getMappings();
+  mappings(): Mappings {
+    return getMappings();
   }
 
   /**
@@ -116,7 +112,9 @@ export class Reference {
 
 /**
  * Uploads a blob to this object's location.
- * @param data The blob to upload.
+ * @param ref Storage Reference where data should be uploaded.
+ * @param data The data to upload.
+ * @param metadata Metadata for the newly uploaded object.
  * @return An UploadTask that lets you control and
  *     observe the upload.
  */
@@ -125,8 +123,12 @@ export function uploadBytes(
   data: Blob | Uint8Array | ArrayBuffer,
   metadata: Metadata | null = null
 ): UploadTask {
-  validate('put', [uploadDataSpec(), metadataSpec(true)], arguments);
-  ref.throwIfRoot_('put');
+  try {
+    metadata && metadataValidator(metadata);
+  } catch (e) {
+    throw errorsExports.invalidArgument(2, 'uploadBytes', e.message);
+  }
+  ref.throwIfRoot_('uploadBytes');
   return new UploadTask(ref, new FbsBlob(data), metadata);
 }
 
@@ -143,11 +145,17 @@ export function uploadString(
   format: StringFormat = StringFormat.RAW,
   metadata?: Metadata
 ): UploadTask {
-  validate(
-    'putString',
-    [stringSpec(), stringSpec(formatValidator, true), metadataSpec(true)],
-    arguments
-  );
+  // Helpful message about allowable formats.
+  try {
+    formatValidator(format);
+  } catch (e) {
+    throw errorsExports.invalidArgument(2, 'uploadString', e.message);
+  }
+  try {
+    metadata && metadataValidator(metadata);
+  } catch (e) {
+    throw errorsExports.invalidArgument(3, 'uploadString', e.message);
+  }
   ref.throwIfRoot_('putString');
   const data = dataFromString(format, value);
   const metadataClone = Object.assign({}, metadata);
@@ -178,7 +186,6 @@ export function uploadString(
  *      folder. `nextPageToken` is never returned.
  */
 export function listAll(ref: Reference): Promise<ListResult> {
-  validate('listAll', [], arguments);
   const accumulator = {
     prefixes: [],
     items: []
@@ -233,7 +240,6 @@ export function list(
   ref: Reference,
   options?: ListOptions | null
 ): Promise<ListResult> {
-  validate('list', [listOptionSpec(true)], arguments);
   return ref.service.getAuthToken().then(authToken => {
     const op = options || {};
     const requestInfo = requests.list(
@@ -253,7 +259,6 @@ export function list(
  *     rejected.
  */
 export function getMetadata(ref: Reference): Promise<Metadata> {
-  validate('getMetadata', [], arguments);
   ref.throwIfRoot_('getMetadata');
   return ref.service.getAuthToken().then(authToken => {
     const requestInfo = requests.getMetadata(
@@ -278,7 +283,6 @@ export function updateMetadata(
   ref: Reference,
   metadata: Metadata
 ): Promise<Metadata> {
-  validate('updateMetadata', [metadataSpec()], arguments);
   ref.throwIfRoot_('updateMetadata');
   return ref.service.getAuthToken().then(authToken => {
     const requestInfo = requests.updateMetadata(
@@ -296,7 +300,6 @@ export function updateMetadata(
  *     URL for this object.
  */
 export function getDownloadURL(ref: Reference): Promise<string> {
-  validate('getDownloadURL', [], arguments);
   ref.throwIfRoot_('getDownloadURL');
   return ref.service.getAuthToken().then(authToken => {
     const requestInfo = requests.getDownloadUrl(
@@ -321,8 +324,7 @@ export function getDownloadURL(ref: Reference): Promise<string> {
  * @return A promise that resolves if the deletion succeeds.
  */
 export function deleteObject(ref: Reference): Promise<void> {
-  validate('delete', [], arguments);
-  ref.throwIfRoot_('delete');
+  ref.throwIfRoot_('deleteObject');
   return ref.service.getAuthToken().then(authToken => {
     const requestInfo = requests.deleteObject(ref.service, ref.location);
     return ref.service.makeRequest(requestInfo, authToken).getPromise();
@@ -334,7 +336,6 @@ export function deleteObject(ref: Reference): Promise<void> {
  *     slashes.
  */
 export function getChild(ref: Reference, childPath: string): Reference {
-  validate('child', [stringSpec()], arguments);
   const newPath = path.child(ref.location.path, childPath);
   const location = new Location(ref.location.bucket, newPath);
   return new Reference(ref.service, location);
