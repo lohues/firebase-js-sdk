@@ -20,7 +20,8 @@
     "test:browser:integration": "karma start --single-run --integration",
     "test:browser": "karma start --single-run",
     "prepare": "yarn build",
-    "prettier": "prettier --write 'src/**/*.ts' 'test/**/*.ts'"
+    "prettier": "prettier --write 'src/**/*.ts' 'test/**/*.ts'",
+    "api-report": "api-extractor run --local --verbose"
   },
   "license": "Apache-2.0",
   "dependencies": {

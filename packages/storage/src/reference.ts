@@ -38,10 +38,11 @@ import { Metadata } from './metadata';
 import { StorageService } from './service';
 import { UploadTask } from './task';
 import { ListOptions, ListResult } from './list';
+import { uploadDataSpec, listOptionSpec } from './implementation/args';
 
 /**
  * Provides methods to interact with a bucket in the Firebase Storage service.
- * @param location An fbs.location, or the URL at
+ * @param location - An fbs.location, or the URL at
  *     which to base this object, in one of the following forms:
  *         gs://<bucket>/<object-path>
  *         http[s]://firebasestorage.googleapis.com/
@@ -62,7 +63,7 @@ export class Reference {
   }
 
   /**
-   * @return The URL for the bucket and path this object references,
+   * @returns The URL for the bucket and path this object references,
    *     in the form gs://<bucket>/<object-path>
    * @override
    */
@@ -74,12 +75,15 @@ export class Reference {
     return new Reference(service, location);
   }
 
+  /**
+   * @internal
+   */
   mappings(): Mappings {
     return getMappings();
   }
 
   /**
-   * @return An reference to the root of this
+   * @returns An reference to the root of this
    *     object's bucket.
    */
   get root(): Reference {
@@ -112,10 +116,11 @@ export class Reference {
 
 /**
  * Uploads a blob to this object's location.
- * @param ref Storage Reference where data should be uploaded.
- * @param data The data to upload.
- * @param metadata Metadata for the newly uploaded object.
- * @return An UploadTask that lets you control and
+ * @public
+ * @param ref - Storage Reference where data should be uploaded.
+ * @param data - The data to upload.
+ * @param metadata - Metadata for the newly uploaded string.
+ * @returns An UploadTask that lets you control and
  *     observe the upload.
  */
 export function uploadBytes(
@@ -123,6 +128,11 @@ export function uploadBytes(
   data: Blob | Uint8Array | ArrayBuffer,
   metadata: Metadata | null = null
 ): UploadTask {
+  try {
+    uploadDataSpec().validator(data);
+  } catch (e) {
+    throw errorsExports.invalidArgument(1, 'uploadBytes', e.message);
+  }
   try {
     metadata && metadataValidator(metadata);
   } catch (e) {
@@ -134,9 +144,12 @@ export function uploadBytes(
 
 /**
  * Uploads a string to this object's location.
- * @param value The string to upload.
- * @param format The format of the string to upload.
- * @return An UploadTask that lets you control and
+ * @public
+ * @param ref - Storage Reference where string should be uploaded.
+ * @param value - The string to upload.
+ * @param format - The format of the string to upload.
+ * @param metadata - Metadata for the newly uploaded object.
+ * @returns An UploadTask that lets you control and
  *     observe the upload.
  */
 export function uploadString(
@@ -145,7 +158,13 @@ export function uploadString(
   format: StringFormat = StringFormat.RAW,
   metadata?: Metadata
 ): UploadTask {
-  // Helpful message about allowable formats.
+  if (typeof value !== 'string') {
+    throw errorsExports.invalidArgument(
+      1,
+      'uploadString',
+      'Must provide a string to upload.'
+    );
+  }
   try {
     formatValidator(format);
   } catch (e) {
@@ -179,8 +198,10 @@ export function uploadString(
  *
  * Warning: listAll may potentially consume too many resources if there are
  * too many results.
+ * @public
+ * @param ref - Storage Reference to get list from.
  *
- * @return A Promise that resolves with all the items and prefixes under
+ * @returns A Promise that resolves with all the items and prefixes under
  *      the current storage reference. `prefixes` contains references to
  *      sub-directories and `items` contains references to objects in this
  *      folder. `nextPageToken` is never returned.
@@ -195,6 +216,7 @@ export function listAll(ref: Reference): Promise<ListResult> {
 
 /**
  * Separated from listAll because async functions can't use "arguments".
+ * @internal
  * @param ref
  * @param accumulator
  * @param pageToken
@@ -229,9 +251,11 @@ async function listAllHelper(
  * support objects whose paths end with "/" or contain two consecutive
  * "/"s. Firebase Storage List API will filter these unsupported objects.
  * list() may fail if there are too many unsupported objects in the bucket.
+ * @public
  *
- * @param options See ListOptions for details.
- * @return A Promise that resolves with the items and prefixes.
+ * @param ref - Storage Reference to get list from.
+ * @param options - See ListOptions for details.
+ * @returns A Promise that resolves with the items and prefixes.
  *      `prefixes` contains references to sub-folders and `items`
  *      contains references to objects in this folder. `nextPageToken`
  *      can be used to get the rest of the results.
@@ -240,6 +264,11 @@ export function list(
   ref: Reference,
   options?: ListOptions | null
 ): Promise<ListResult> {
+  try {
+    options && listOptionSpec().validator(options);
+  } catch (e) {
+    throw errorsExports.invalidArgument(1, 'list', e.message);
+  }
   return ref.service.getAuthToken().then(authToken => {
     const op = options || {};
     const requestInfo = requests.list(
@@ -254,9 +283,11 @@ export function list(
 }
 
 /**
- *     A promise that resolves with the metadata for this object. If this
- *     object doesn't exist or metadata cannot be retreived, the promise is
- *     rejected.
+ * A promise that resolves with the metadata for this object. If this
+ * object doesn't exist or metadata cannot be retreived, the promise is
+ * rejected.
+ * @public
+ * @param ref - Storage Reference to get metadata from.
  */
 export function getMetadata(ref: Reference): Promise<Metadata> {
   ref.throwIfRoot_('getMetadata');
@@ -272,10 +303,12 @@ export function getMetadata(ref: Reference): Promise<Metadata> {
 
 /**
  * Updates the metadata for this object.
- * @param metadata The new metadata for the object.
+ * @public
+ * @param ref - Storage Reference to update metadata for.
+ * @param metadata - The new metadata for the object.
  *     Only values that have been explicitly set will be changed. Explicitly
  *     setting a value to null will remove the metadata.
- * @return A promise that resolves
+ * @returns A promise that resolves
  *     with the new metadata for this object.
  *     @see firebaseStorage.Reference.prototype.getMetadata
  */
@@ -283,6 +316,11 @@ export function updateMetadata(
   ref: Reference,
   metadata: Metadata
 ): Promise<Metadata> {
+  try {
+    metadataValidator(metadata);
+  } catch (e) {
+    throw errorsExports.invalidArgument(1, 'uploadBytes', e.message);
+  }
   ref.throwIfRoot_('updateMetadata');
   return ref.service.getAuthToken().then(authToken => {
     const requestInfo = requests.updateMetadata(
@@ -296,7 +334,8 @@ export function updateMetadata(
 }
 
 /**
- * @return A promise that resolves with the download
+ * @public
+ * @returns A promise that resolves with the download
  *     URL for this object.
  */
 export function getDownloadURL(ref: Reference): Promise<string> {
@@ -321,7 +360,9 @@ export function getDownloadURL(ref: Reference): Promise<string> {
 
 /**
  * Deletes the object at this location.
- * @return A promise that resolves if the deletion succeeds.
+ * @public
+ * @param ref - Storage Reference for object to delete.
+ * @returns A promise that resolves if the deletion succeeds.
  */
 export function deleteObject(ref: Reference): Promise<void> {
   ref.throwIfRoot_('deleteObject');
@@ -330,20 +371,27 @@ export function deleteObject(ref: Reference): Promise<void> {
     return ref.service.makeRequest(requestInfo, authToken).getPromise();
   });
 }
+
 /**
- * @return A reference to the object obtained by
- *     appending childPath, removing any duplicate, beginning, or trailing
- *     slashes.
+ * Returns reference for object obtained by appending `childPath` to `ref`.
+ * @internal
+ *
+ * @param ref - Storage Reference to get child of.
+ * @param childPath - Child path from provided ref.
+ * @returns A reference to the object obtained by
+ * appending childPath, removing any duplicate, beginning, or trailing
+ * slashes.
  */
 export function getChild(ref: Reference, childPath: string): Reference {
   const newPath = path.child(ref.location.path, childPath);
   const location = new Location(ref.location.bucket, newPath);
   return new Reference(ref.service, location);
 }
-
 /**
- * @return A reference to the parent of the
- *     current object, or null if the current object is the root.
+ * @public
+ * @param ref - Storage Reference to get parent of.
+ * @returns A reference to the parent of the
+ * current object, or null if the current object is the root.
  */
 export function getParent(ref: Reference): Reference | null {
   const newPath = path.parent(ref.location.path);
